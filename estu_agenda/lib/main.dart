@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
-import 'screens/materias_tareas_screen.dart'; 
-import 'screens/calendar_screen.dart';
+import 'screens/horario_screen.dart';
 
 void main() {
   runApp(const MiApp());
@@ -16,10 +14,12 @@ class MiApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'EsTuAgenda',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D969F)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1D969F),
+        ),
         useMaterial3: true,
       ),
-      home: const CalendarScreen(), // Acceso temporal para revisar el horario.
+      home: const HorarioScreen(), // Pantalla principal por defecto
     );
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'settings_screen.dart'; 
+import 'settings_screen.dart';
 import 'calendar_screen.dart';
 import 'materias_tareas_screen.dart';
-import 'login_screen.dart'; // Importante para poder cerrar sesión
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,10 +17,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color cardColor = Colors.white;
   static const Color textDark = Color(0xFF124B51);
 
-  final int _currentBottomNavIndex = 3; // Índice 3 corresponde al Perfil
+  final int _currentBottomNavIndex = 3;
 
-  // Función para construir cada opción de la pantalla principal de perfil
-  Widget _buildProfileOption({required IconData icon, required String title, VoidCallback? onTap}) {
+  Widget _buildProfileOption({
+    required IconData icon,
+    required String title,
+    VoidCallback? onTap,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -38,12 +41,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontSize: 16,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Colors.grey,
+        ),
       ),
     );
   }
 
-  // Función para construir las opciones del menú lateral (Drawer)
   Widget _buildDrawerOption({
     required IconData icon,
     required String title,
@@ -51,8 +56,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool isSelected = false,
     bool isLogout = false,
   }) {
-    final colorText = isLogout ? Colors.red : (isSelected ? primaryTeal : textDark);
-    final colorBg = isSelected ? primaryTeal.withOpacity(0.12) : Colors.transparent;
+    final colorText = isLogout
+        ? Colors.red
+        : (isSelected ? primaryTeal : textDark);
+
+    final colorBg = isSelected
+        ? primaryTeal.withOpacity(0.12)
+        : Colors.transparent;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -68,7 +78,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title,
           style: TextStyle(
             color: colorText,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            fontWeight: isSelected
+                ? FontWeight.bold
+                : FontWeight.w500,
             fontSize: 15,
           ),
         ),
@@ -80,12 +92,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (index == 0 || index == 1) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const CalendarScreen()),
+        MaterialPageRoute(
+          builder: (context) => const CalendarScreen(),
+        ),
       );
     } else if (index == 2) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const MateriasTareasScreen()),
+        MaterialPageRoute(
+          builder: (context) => const MateriasTareasScreen(),
+        ),
       );
     }
   }
@@ -99,14 +115,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: primaryTeal, size: 28),
+            icon: const Icon(
+              Icons.menu,
+              color: primaryTeal,
+              size: 28,
+            ),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.menu_book_rounded, color: primaryTeal, size: 28),
+            Icon(
+              Icons.menu_book_rounded,
+              color: primaryTeal,
+              size: 28,
+            ),
             SizedBox(width: 8),
             Text(
               'Configuración',
@@ -120,15 +144,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: false,
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Image.asset(
+              'assets/logo.png',
+              height: 32,
+              width: 32,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.account_circle,
+                color: primaryTeal,
+                size: 32,
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: primaryTeal, size: 28),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: primaryTeal,
+              size: 28,
+            ),
             onPressed: () {},
           ),
           const SizedBox(width: 8),
         ],
       ),
-
-      // AQUÍ ESTÁ EL MENÚ LATERAL BASADO EN TU IMAGEN
       drawer: Drawer(
         backgroundColor: cardColor,
         child: SafeArea(
@@ -140,7 +179,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Row(
                       children: const [
-                        Icon(Icons.auto_stories_rounded, color: primaryTeal, size: 30),
+                        Icon(
+                          Icons.auto_stories_rounded,
+                          color: primaryTeal,
+                          size: 30,
+                        ),
                         SizedBox(width: 10),
                         Text(
                           'Agenda',
@@ -155,8 +198,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 20),
                     CircleAvatar(
                       radius: 36,
-                      backgroundColor: primaryTeal.withOpacity(0.15),
-                      child: const Icon(Icons.person_outline, size: 40, color: primaryTeal),
+                      backgroundColor:
+                          primaryTeal.withOpacity(0.15),
+                      child: const Icon(
+                        Icons.person_outline,
+                        size: 40,
+                        color: primaryTeal,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     const Text(
@@ -180,48 +228,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   children: [
                     _buildDrawerOption(
                       icon: Icons.home_rounded,
                       title: 'Inicio',
                       onTap: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CalendarScreen()));
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CalendarScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerOption(
                       icon: Icons.person_outline_rounded,
                       title: 'Perfil',
-                      isSelected: true, // Lo marcamos como seleccionado
+                      isSelected: true,
                       onTap: () => Navigator.pop(context),
                     ),
                     _buildDrawerOption(
                       icon: Icons.calendar_month_outlined,
                       title: 'Calendario',
                       onTap: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CalendarScreen()));
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CalendarScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerOption(
                       icon: Icons.menu_book_rounded,
                       title: 'Materias',
                       onTap: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MateriasTareasScreen()));
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const MateriasTareasScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerOption(
                       icon: Icons.check_box_outlined,
                       title: 'Tareas',
                       onTap: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MateriasTareasScreen()));
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const MateriasTareasScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerOption(
                       icon: Icons.settings_outlined,
                       title: 'Configuración',
                       onTap: () {
-                        Navigator.pop(context); // Cierra el menú
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -235,11 +313,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: 'Cerrar sesión',
                   isLogout: true,
                   onTap: () {
-                    // Cierra sesión y te manda al login
                     Navigator.pushAndRemoveUntil(
-                      context, 
-                      MaterialPageRoute(builder: (_) => const LoginScreen()), 
-                      (route) => false
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoginScreen(),
+                      ),
+                      (route) => false,
                     );
                   },
                 ),
@@ -248,7 +327,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -263,8 +341,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 30,
-                    backgroundColor: primaryTeal.withOpacity(0.15),
-                    child: const Icon(Icons.person_outline, size: 36, color: primaryTeal),
+                    backgroundColor:
+                        primaryTeal.withOpacity(0.15),
+                    child: const Icon(
+                      Icons.person_outline,
+                      size: 36,
+                      color: primaryTeal,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Column(
@@ -291,16 +374,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            
             _buildProfileOption(
               icon: Icons.person_outline,
               title: 'Datos personales',
-              onTap: () {}, 
+              onTap: () {},
             ),
             _buildProfileOption(
               icon: Icons.assignment_outlined,
               title: 'Datos académicos',
-              onTap: () {}, 
+              onTap: () {},
             ),
             _buildProfileOption(
               icon: Icons.settings_outlined,
@@ -308,7 +390,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
                 );
               },
             ),
@@ -337,10 +421,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           unselectedFontSize: 12,
           elevation: 0,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Inicio'),
-            BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'Calendario'),
-            BottomNavigationBarItem(icon: Icon(Icons.check_box_outlined), label: 'Tareas'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Perfil'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_rounded),
+              label: 'Inicio',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month_outlined),
+              label: 'Calendario',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.check_box_outlined),
+              label: 'Tareas',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline_rounded),
+              label: 'Perfil',
+            ),
           ],
         ),
       ),

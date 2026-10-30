@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class ClaseHorario {
   final String id;
   String materia;
-  final int dia; // 1 = lunes, 7 = domingo
+  final int dia; 
   final TimeOfDay inicio;
   final TimeOfDay fin;
 
@@ -33,20 +33,27 @@ class Tarea {
 }
 
 class TareasController extends ChangeNotifier {
-
   static final TareasController _instancia = TareasController._interno();
-
   factory TareasController() => _instancia;
-
   TareasController._interno();
-    List<Tarea> get tareasPendientes {
+
+  final List<ClaseHorario> _clases = [];
+  final List<String> materias = [];
+  final List<Tarea> _todasLasTareas = [];
+
+  String? _materiaSeleccionada;
+  String? get materiaSeleccionada => _materiaSeleccionada;
+
+  String _filtroActivo = 'Todas';
+  String get filtroActivo => _filtroActivo;
+
+  List<ClaseHorario> get clases => List.unmodifiable(_clases);
+
+  List<Tarea> get tareasPendientes {
     return _todasLasTareas
         .where((tarea) => tarea.estado != EstadoTarea.terminada)
         .toList();
   }
-    final List<ClaseHorario> _clases = [];
-
-  List<ClaseHorario> get clases => List.unmodifiable(_clases);
 
   String? agregarClase({
     required String materia,
@@ -71,14 +78,10 @@ class TareasController extends ChangeNotifier {
     }
 
     final hayCruce = _clases.any((clase) {
-      final inicioExistente =
-          clase.inicio.hour * 60 + clase.inicio.minute;
-      final finExistente =
-          clase.fin.hour * 60 + clase.fin.minute;
+      final inicioExistente = clase.inicio.hour * 60 + clase.inicio.minute;
+      final finExistente = clase.fin.hour * 60 + clase.fin.minute;
 
-      return clase.dia == dia &&
-          desde < finExistente &&
-          hasta > inicioExistente;
+      return clase.dia == dia && desde < finExistente && hasta > inicioExistente;
     });
 
     if (hayCruce) {
@@ -104,18 +107,6 @@ class TareasController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 1. Listas vacías inicialmente
-  final List<String> materias = [];
-  String? _materiaSeleccionada;
-  String? get materiaSeleccionada => _materiaSeleccionada;
-
-  String _filtroActivo = 'Todas';
-  String get filtroActivo => _filtroActivo;
-
-  final List<Tarea> _todasLasTareas = [];
-
-  // --- GESTIÓN DE MATERIAS ---
-
   void agregarMateria(String nuevaMateria) {
     final materiaLimpia = nuevaMateria.trim();
     if (materiaLimpia.isEmpty) return;
@@ -134,7 +125,7 @@ class TareasController extends ChangeNotifier {
     final index = materias.indexOf(_materiaSeleccionada!);
     if (index != -1) {
       final materiaAntigua = _materiaSeleccionada!;
-            for (final clase in _clases) {
+      for (final clase in _clases) {
         if (clase.materia == materiaAntigua) {
           clase.materia = nombreLimpio;
         }
@@ -142,7 +133,6 @@ class TareasController extends ChangeNotifier {
       materias[index] = nombreLimpio;
       _materiaSeleccionada = nombreLimpio;
 
-      // Actualizar el nombre de la materia en todas sus tareas asociadas
       for (var tarea in _todasLasTareas) {
         if (tarea.materia == materiaAntigua) {
           tarea.materia = nombreLimpio;
@@ -157,14 +147,9 @@ class TareasController extends ChangeNotifier {
 
     final materiaAEliminar = _materiaSeleccionada!;
     materias.remove(materiaAEliminar);
-        _clases.removeWhere(
-      (clase) => clase.materia == materiaAEliminar,
-    );
-
-    // Eliminar también las tareas asociadas a esta materia
+    _clases.removeWhere((clase) => clase.materia == materiaAEliminar);
     _todasLasTareas.removeWhere((t) => t.materia == materiaAEliminar);
 
-    // Seleccionar la primera materia disponible si existe
     _materiaSeleccionada = materias.isNotEmpty ? materias.first : null;
     notifyListeners();
   }
