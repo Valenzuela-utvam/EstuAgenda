@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import 'horario_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -9,42 +12,79 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   // Variables para el género y las políticas
   String? _selectedGender;
   bool _acceptedTerms = false;
+  bool _isLoading = false;
 
   // Paleta de colores
   final Color stuDark = const Color(0xFF1A635D);
   final Color stuVibrant = const Color(0xFF4AB6AC);
   final Color stuInput = const Color(0xFFF0F4F8);
 
-  void _register() {
-    // Validar formulario primero
-    if (_formKey.currentState!.validate()) {
-      // Validar si aceptó las políticas de privacidad
-      if (!_acceptedTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Debes aceptar las políticas de privacidad y avisos para continuar.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return;
-      }
-
-      // Si todo está correcto
+  Future<void> _register() async {
+    if (_isLoading || !_formKey.currentState!.validate()) return;
+    if (!_acceptedTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Registrando usuario...'),
-          backgroundColor: stuDark,
+        const SnackBar(
+          content: Text(
+            'Debes aceptar las políticas de privacidad y avisos para continuar.',
+          ),
+          backgroundColor: Colors.redAccent,
         ),
       );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+      await credential.user?.updateDisplayName(_nameController.text.trim());
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HorarioScreen()),
+        (_) => false,
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_authErrorMessage(error)),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _authErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'email-already-in-use':
+        return 'Ya existe una cuenta con ese correo.';
+      case 'invalid-email':
+        return 'El correo electrónico no es válido.';
+      case 'weak-password':
+        return 'La contraseña es demasiado débil.';
+      case 'operation-not-allowed':
+        return 'Activa el proveedor Correo/contraseña en Firebase Authentication.';
+      case 'configuration-not-found':
+        return 'Firebase Authentication no está configurado. En Firebase Console, abre Authentication y configura el acceso con correo y contraseña para el proyecto estuagenda-e40e9.';
+      case 'network-request-failed':
+        return 'No se pudo conectar. Revisa tu conexión a internet.';
+      default:
+        return error.message ?? 'No se pudo crear la cuenta.';
     }
   }
 
@@ -53,18 +93,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Políticas de Privacidad y Avisos',
           style: TextStyle(color: stuDark, fontWeight: FontWeight.bold),
         ),
         content: const SingleChildScrollView(
-          child: Text(
-            '(aquí irán los avisos)',
-            style: TextStyle(fontSize: 16),
-          ),
+          child: Text('(aquí irán los avisos)', style: TextStyle(fontSize: 16)),
         ),
         actions: [
           TextButton(
@@ -103,7 +138,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 8.0,
+            ),
             child: Form(
               key: _formKey,
               child: Column(
@@ -111,10 +149,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Imagen reemplazando al icono antiguo
-                  Image.asset(
-                    'assets/logo.png',
-                    height: 80,
-                  ),
+                  Image.asset('assets/logo.png', height: 80),
                   const SizedBox(height: 24),
                   Text(
                     'Crear Cuenta',
@@ -126,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Campo de Nombre
                   TextFormField(
                     controller: _nameController,
@@ -186,7 +221,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Campo de Contraseña
                   TextFormField(
                     controller: _passwordController,
@@ -329,10 +364,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Botón de Registro
                   ElevatedButton(
-                    onPressed: _register,
+                    onPressed: _isLoading ? null : _register,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: stuDark,
                       foregroundColor: Colors.white,
@@ -342,21 +377,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Registrarse',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Registrarse',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Botón para regresar al Login
                   TextButton(
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    style: TextButton.styleFrom(
-                      foregroundColor: stuDark,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: stuDark),
                     child: const Text(
                       '¿Ya tienes cuenta? Inicia sesión',
                       style: TextStyle(fontWeight: FontWeight.w600),

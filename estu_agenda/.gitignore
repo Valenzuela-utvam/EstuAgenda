@@ -50,12 +50,26 @@ app.*.map.json
 # Variables de entorno
 .env
 *.env
+.env.*
+!.env.example
+!.env.sample
 
 # Configuración de servicios externos
 **/google-services.json
 **/GoogleService-Info.plist
+**/*service-account*.json
+**/*firebase-adminsdk*.json
+.firebase/
 
 # Claves de firma de Android
 **/key.properties
+**/local.properties
 *.jks
 *.keystore
+
+# Certificados y claves privadas
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile

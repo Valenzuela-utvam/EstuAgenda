@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
+
+import '../utils/auth_navigation.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -18,10 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificaciones = true;
   bool _modoOscuro = false;
 
-  void _mostrarOpcion({
-    required String titulo,
-    required Widget contenido,
-  }) {
+  void _mostrarOpcion({required String titulo, required Widget contenido}) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -67,10 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             fontSize: 16,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: Colors.grey,
-        ),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
         onTap: onTap,
       ),
     );
@@ -84,19 +79,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: textDark,
-          ),
+          icon: const Icon(Icons.arrow_back, color: textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Row(
           children: [
-            Icon(
-              Icons.menu_book_rounded,
-              color: primaryTeal,
-              size: 28,
-            ),
+            Icon(Icons.menu_book_rounded, color: primaryTeal, size: 28),
             SizedBox(width: 8),
             Text(
               'Configuraciones',
@@ -164,9 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     builder: (context, setDialogState) {
                       return SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Activar notificaciones',
-                        ),
+                        title: const Text('Activar notificaciones'),
                         value: _notificaciones,
                         onChanged: (value) {
                           setState(() {
@@ -221,19 +207,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Spacer(),
             TextButton.icon(
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const LoginScreen(),
-                  ),
-                  (route) => false,
-                );
-              },
-              icon: const Icon(
-                Icons.logout,
-                color: primaryTeal,
-              ),
+              onPressed: () => cerrarSesion(context),
+              icon: const Icon(Icons.logout, color: primaryTeal),
               label: const Text(
                 'Cerrar sesión',
                 style: TextStyle(
