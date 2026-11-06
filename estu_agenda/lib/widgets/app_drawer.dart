@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../utils/auth_navigation.dart';
 import '../screens/horario_screen.dart';
 import '../screens/calendar_screen.dart';
 import '../screens/materias_tareas_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/login_screen.dart';
+import 'user_account_info.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, required this.currentRoute});
@@ -19,13 +21,17 @@ class AppDrawer extends StatelessWidget {
     required BuildContext context,
     required IconData icon,
     required String title,
-    required Widget destinationScreen,
+    Widget? destinationScreen,
     required String routeName,
     bool isLogout = false,
   }) {
     final isSelected = currentRoute == routeName;
-    final colorText = isLogout ? Colors.red : (isSelected ? primaryTeal : textDark);
-    final colorBg = isSelected ? primaryTeal.withOpacity(0.12) : Colors.transparent;
+    final colorText = isLogout
+        ? Colors.red
+        : (isSelected ? primaryTeal : textDark);
+    final colorBg = isSelected
+        ? primaryTeal.withOpacity(0.12)
+        : Colors.transparent;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -34,15 +40,14 @@ class AppDrawer extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        onTap: () {
-          Navigator.pop(context); // Cierra el drawer
+        onTap: () async {
           if (isLogout) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => destinationScreen),
-              (route) => false,
-            );
-          } else if (!isSelected) {
+            await cerrarSesion(context);
+            return;
+          }
+
+          Navigator.pop(context);
+          if (!isSelected && destinationScreen != null) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => destinationScreen),
@@ -76,7 +81,11 @@ class AppDrawer extends StatelessWidget {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.auto_stories_rounded, color: primaryTeal, size: 30),
+                      Icon(
+                        Icons.auto_stories_rounded,
+                        color: primaryTeal,
+                        size: 30,
+                      ),
                       SizedBox(width: 10),
                       Text(
                         'EsTuAgenda',
@@ -89,34 +98,17 @@ class AppDrawer extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundColor: primaryTeal.withOpacity(0.15),
-                    child: const Icon(Icons.person_outline, size: 40, color: primaryTeal),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Estudiante',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: textDark,
-                    ),
-                  ),
-                  Text(
-                    'estudiante@email.com',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
+                  const UserAccountInfo(),
                 ],
               ),
             ),
             const Divider(height: 1),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 children: [
                   _buildDrawerOption(
                     context: context,
@@ -163,7 +155,6 @@ class AppDrawer extends StatelessWidget {
                 context: context,
                 icon: Icons.logout_rounded,
                 title: 'Cerrar sesión',
-                destinationScreen: const LoginScreen(),
                 routeName: 'logout',
                 isLogout: true,
               ),

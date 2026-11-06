@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../controllers/tareas_controller.dart';
 import '../widgets/app_drawer.dart';
 import 'materias_tareas_screen.dart';
@@ -11,8 +12,13 @@ class HorarioScreen extends StatelessWidget {
   static const Color textDark = Color(0xFF124B51);
 
   static const _dias = [
-    'Lunes', 'Martes', 'Miércoles', 'Jueves',
-    'Viernes', 'Sábado', 'Domingo',
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+    'Domingo',
   ];
 
   Future<void> _agregarClase(BuildContext context) async {
@@ -21,15 +27,14 @@ class HorarioScreen extends StatelessWidget {
     if (controller.materias.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Primero agrega una materia en “Materias y Tareas”.',
-          ),
+          content: Text('Primero agrega una materia en “Materias y Tareas”.'),
         ),
       );
       return;
     }
 
-    String materia = controller.materias.first;
+    String materiaId =
+        controller.materiaIdSeleccionada ?? controller.materiasPorId.keys.first;
     int dia = 1;
     TimeOfDay inicio = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay fin = const TimeOfDay(hour: 9, minute: 0);
@@ -47,29 +52,25 @@ class HorarioScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
-                    initialValue: materia,
+                    initialValue: materiaId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Materia',
-                    ),
-                    items: controller.materias.map((nombre) {
+                    decoration: const InputDecoration(labelText: 'Materia'),
+                    items: controller.materiasPorId.entries.map((entry) {
                       return DropdownMenuItem(
-                        value: nombre,
-                        child: Text(nombre),
+                        value: entry.key,
+                        child: Text(entry.value),
                       );
                     }).toList(),
                     onChanged: (valor) {
                       if (valor != null) {
-                        actualizar(() => materia = valor);
+                        actualizar(() => materiaId = valor);
                       }
                     },
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<int>(
                     initialValue: dia,
-                    decoration: const InputDecoration(
-                      labelText: 'Día',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Día'),
                     items: List.generate(7, (index) {
                       return DropdownMenuItem(
                         value: index + 1,
@@ -112,10 +113,7 @@ class HorarioScreen extends StatelessWidget {
                     },
                   ),
                   if (error != null)
-                    Text(
-                      error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
+                    Text(error!, style: const TextStyle(color: Colors.red)),
                 ],
               ),
             ),
@@ -126,9 +124,9 @@ class HorarioScreen extends StatelessWidget {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
-                final mensaje = controller.agregarClase(
-                  materia: materia,
+              onPressed: () async {
+                final mensaje = controller.validarClase(
+                  materiaId: materiaId,
                   dia: dia,
                   inicio: inicio,
                   fin: fin,
@@ -139,7 +137,17 @@ class HorarioScreen extends StatelessWidget {
                   return;
                 }
 
-                Navigator.pop(dialogContext);
+                try {
+                  await controller.agregarClase(
+                    materiaId: materiaId,
+                    dia: dia,
+                    inicio: inicio,
+                    fin: fin,
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } catch (exception) {
+                  actualizar(() => error = exception.toString());
+                }
               },
               child: const Text('Guardar'),
             ),
@@ -147,6 +155,21 @@ class HorarioScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _eliminarClase(
+    BuildContext context,
+    TareasController controller,
+    String id,
+  ) async {
+    try {
+      await controller.eliminarClase(id);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar la clase: $error')),
+      );
+    }
   }
 
   String _hora(int minutos) {
@@ -166,21 +189,13 @@ class HorarioScreen extends StatelessWidget {
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(
-              Icons.menu,
-              color: primaryTeal,
-              size: 28,
-            ),
+            icon: const Icon(Icons.menu, color: primaryTeal, size: 28),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
         title: const Row(
           children: [
-            Icon(
-              Icons.schedule_rounded,
-              color: primaryTeal,
-              size: 28,
-            ),
+            Icon(Icons.schedule_rounded, color: primaryTeal, size: 28),
             SizedBox(width: 8),
             Text(
               'Inicio (Mi Horario)',
@@ -228,6 +243,29 @@ class HorarioScreen extends StatelessWidget {
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
+          if (controller.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (controller.errorCarga != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(controller.errorCarga!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: controller.recargar,
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           final clases = controller.clases;
           int primeraHora = 8;
           int ultimaHora = 14;
@@ -237,10 +275,11 @@ class HorarioScreen extends StatelessWidget {
                 .map((clase) => clase.inicio.hour)
                 .reduce((a, b) => a < b ? a : b);
 
-            ultimaHora = clases.map((clase) {
-              return clase.fin.hour +
-                  (clase.fin.minute > 0 ? 1 : 0);
-            }).reduce((a, b) => a > b ? a : b);
+            ultimaHora = clases
+                .map((clase) {
+                  return clase.fin.hour + (clase.fin.minute > 0 ? 1 : 0);
+                })
+                .reduce((a, b) => a > b ? a : b);
           }
 
           final altura = (ultimaHora - primeraHora) * 80.0;
@@ -306,9 +345,11 @@ class HorarioScreen extends StatelessWidget {
                               height: altura,
                               child: Stack(
                                 children: [
-                                  for (int hora = primeraHora;
-                                      hora < ultimaHora;
-                                      hora++)
+                                  for (
+                                    int hora = primeraHora;
+                                    hora < ultimaHora;
+                                    hora++
+                                  )
                                     Positioned(
                                       top: (hora - primeraHora) * 80.0,
                                       left: 0,
@@ -329,37 +370,36 @@ class HorarioScreen extends StatelessWidget {
                                     ),
                                   for (final clase in clases)
                                     Positioned(
-                                      left: 70 +
-                                          (clase.dia - 1) * 140.0 +
-                                          3,
-                                      top: (
-                                        (clase.inicio.hour -
-                                                    primeraHora) *
-                                                60 +
-                                            clase.inicio.minute
-                                      ) * 80 / 60,
+                                      left: 70 + (clase.dia - 1) * 140.0 + 3,
+                                      top:
+                                          ((clase.inicio.hour - primeraHora) *
+                                                  60 +
+                                              clase.inicio.minute) *
+                                          80 /
+                                          60,
                                       width: 134,
-                                      height: (
-                                        (clase.fin.hour -
-                                                    clase.inicio.hour) *
-                                                60 +
-                                            clase.fin.minute -
-                                            clase.inicio.minute
-                                      ) * 80 / 60,
+                                      height:
+                                          ((clase.fin.hour -
+                                                      clase.inicio.hour) *
+                                                  60 +
+                                              clase.fin.minute -
+                                              clase.inicio.minute) *
+                                          80 /
+                                          60,
                                       child: Padding(
                                         padding: const EdgeInsets.only(
                                           bottom: 2,
                                         ),
                                         child: Material(
                                           color: const Color(0xFFBEE6E8),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           clipBehavior: Clip.antiAlias,
                                           child: InkWell(
                                             onTap: () => showDialog<void>(
                                               context: context,
-                                              builder: (dialogContext) =>
-                                                  AlertDialog(
+                                              builder: (dialogContext) => AlertDialog(
                                                 title: Text(clase.materia),
                                                 content: Text(
                                                   '${_dias[clase.dia - 1]}\n'
@@ -370,17 +410,19 @@ class HorarioScreen extends StatelessWidget {
                                                   TextButton(
                                                     onPressed: () =>
                                                         Navigator.pop(
-                                                      dialogContext,
-                                                    ),
+                                                          dialogContext,
+                                                        ),
                                                     child: const Text('Cerrar'),
                                                   ),
                                                   TextButton(
-                                                    onPressed: () {
-                                                      controller.eliminarClase(
-                                                        clase.id,
-                                                      );
+                                                    onPressed: () async {
                                                       Navigator.pop(
                                                         dialogContext,
+                                                      );
+                                                      await _eliminarClase(
+                                                        context,
+                                                        controller,
+                                                        clase.id,
                                                       );
                                                     },
                                                     child: const Text(
@@ -391,8 +433,7 @@ class HorarioScreen extends StatelessWidget {
                                               ),
                                             ),
                                             child: SingleChildScrollView(
-                                              padding:
-                                                  const EdgeInsets.all(6),
+                                              padding: const EdgeInsets.all(6),
                                               child: Text(
                                                 '${clase.materia}\n'
                                                 '${_hora(clase.inicio.hour * 60 + clase.inicio.minute)}'

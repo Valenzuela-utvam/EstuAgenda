@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
+import '../utils/auth_navigation.dart';
+import '../widgets/user_account_info.dart';
 import 'settings_screen.dart';
 import 'calendar_screen.dart';
 import 'materias_tareas_screen.dart';
-import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -41,10 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontSize: 16,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: Colors.grey,
-        ),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
       ),
     );
   }
@@ -78,9 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title,
           style: TextStyle(
             color: colorText,
-            fontWeight: isSelected
-                ? FontWeight.bold
-                : FontWeight.w500,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             fontSize: 15,
           ),
         ),
@@ -92,16 +89,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (index == 0 || index == 1) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const CalendarScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const CalendarScreen()),
       );
     } else if (index == 2) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const MateriasTareasScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const MateriasTareasScreen()),
       );
     }
   }
@@ -115,22 +108,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(
-              Icons.menu,
-              color: primaryTeal,
-              size: 28,
-            ),
+            icon: const Icon(Icons.menu, color: primaryTeal, size: 28),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(
-              Icons.menu_book_rounded,
-              color: primaryTeal,
-              size: 28,
-            ),
+            Icon(Icons.menu_book_rounded, color: primaryTeal, size: 28),
             SizedBox(width: 8),
             Text(
               'Configuración',
@@ -196,32 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor:
-                          primaryTeal.withOpacity(0.15),
-                      child: const Icon(
-                        Icons.person_outline,
-                        size: 40,
-                        color: primaryTeal,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Estudiante',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textDark,
-                      ),
-                    ),
-                    Text(
-                      'estudiante@email.com',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
+                    const UserAccountInfo(),
                   ],
                 ),
               ),
@@ -270,8 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                const MateriasTareasScreen(),
+                            builder: (_) => const MateriasTareasScreen(),
                           ),
                         );
                       },
@@ -283,8 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                const MateriasTareasScreen(),
+                            builder: (_) => const MateriasTareasScreen(),
                           ),
                         );
                       },
@@ -312,15 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.logout_rounded,
                   title: 'Cerrar sesión',
                   isLogout: true,
-                  onTap: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LoginScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  },
+                  onTap: () => cerrarSesion(context),
                 ),
               ),
             ],
@@ -337,41 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: cardColor,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor:
-                        primaryTeal.withOpacity(0.15),
-                    child: const Icon(
-                      Icons.person_outline,
-                      size: 36,
-                      color: primaryTeal,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Estudiante',
-                        style: TextStyle(
-                          color: textDark,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Mi perfil',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              child: const UserAccountInfo(horizontal: true, avatarRadius: 30),
             ),
             const SizedBox(height: 20),
             _buildProfileOption(

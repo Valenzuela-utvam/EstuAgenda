@@ -1,0 +1,141 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function ownsUserData(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/subjects/{subjectId} {
+      allow read, delete: if ownsUserData(userId);
+      allow create: if ownsUserData(userId)
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow update: if ownsUserData(userId)
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/tasks/{taskId} {
+      allow read, delete: if ownsUserData(userId);
+      allow create: if ownsUserData(userId)
+        && request.resource.data.keys().hasOnly([
+          'subjectId',
+          'title',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.subjectId is string
+        && exists(/databases/$(database)/documents/users/$(userId)/subjects/$(request.resource.data.subjectId))
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.status in [
+          'pendiente',
+          'enProceso',
+          'terminada'
+        ]
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow update: if ownsUserData(userId)
+        && request.resource.data.keys().hasOnly([
+          'subjectId',
+          'title',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.subjectId == resource.data.subjectId
+        && exists(/databases/$(database)/documents/users/$(userId)/subjects/$(request.resource.data.subjectId))
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.status in [
+          'pendiente',
+          'enProceso',
+          'terminada'
+        ]
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/classes/{classId} {
+      allow read, delete: if ownsUserData(userId);
+      allow create: if ownsUserData(userId)
+        && request.resource.data.keys().hasOnly([
+          'subjectId',
+          'weekday',
+          'startMinutes',
+          'endMinutes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.subjectId is string
+        && exists(/databases/$(database)/documents/users/$(userId)/subjects/$(request.resource.data.subjectId))
+        && request.resource.data.weekday is int
+        && request.resource.data.weekday >= 1
+        && request.resource.data.weekday <= 7
+        && request.resource.data.startMinutes is int
+        && request.resource.data.startMinutes >= 0
+        && request.resource.data.startMinutes < 1440
+        && request.resource.data.endMinutes is int
+        && request.resource.data.endMinutes > request.resource.data.startMinutes
+        && request.resource.data.endMinutes < 1440
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow update: if ownsUserData(userId)
+        && request.resource.data.keys().hasOnly([
+          'subjectId',
+          'weekday',
+          'startMinutes',
+          'endMinutes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.subjectId == resource.data.subjectId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.weekday is int
+        && request.resource.data.weekday >= 1
+        && request.resource.data.weekday <= 7
+        && request.resource.data.startMinutes is int
+        && request.resource.data.startMinutes >= 0
+        && request.resource.data.startMinutes < 1440
+        && request.resource.data.endMinutes is int
+        && request.resource.data.endMinutes > request.resource.data.startMinutes
+        && request.resource.data.endMinutes < 1440
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/calendarTasks/{taskId} {
+      allow read, delete: if request.auth != null
+        && request.auth.uid == userId;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['title', 'subject', 'date'])
+        && request.resource.data.keys().hasOnly([
+          'title',
+          'subject',
+          'date',
+          'createdAt'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.subject is string
+        && request.resource.data.date is timestamp
+        && request.resource.data.createdAt is timestamp;
+    }
+  }
+}
