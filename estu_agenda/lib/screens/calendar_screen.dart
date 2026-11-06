@@ -1,18 +1,41 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'materias_tareas_screen.dart';
 import '../widgets/app_drawer.dart';
 
 class CalendarTask {
+  final String id;
   final DateTime date;
   final String title;
   final String subject;
 
   CalendarTask({
+    required this.id,
     required this.date,
     required this.title,
     required this.subject,
   });
+
+  factory CalendarTask.fromDocument(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data();
+    final date = data['date'];
+    if (date is! Timestamp ||
+        data['title'] is! String ||
+        data['subject'] is! String) {
+      throw const FormatException('El evento tiene datos incompletos.');
+    }
+
+    return CalendarTask(
+      id: document.id,
+      date: date.toDate(),
+      title: data['title'] as String,
+      subject: data['subject'] as String,
+    );
+  }
 }
 
 class CalendarScreen extends StatefulWidget {
@@ -29,7 +52,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   static const Color textDark = Color(0xFF124B51);
 
   late DateTime _visibleMonth;
-  late List<CalendarTask> _tasks;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>>? _tasksStream;
+  List<CalendarTask> _tasks = [];
+  CollectionReference<Map<String, dynamic>>? _tasksCollection;
 
   final List<String> _months = const [
     'Enero',
@@ -47,7 +72,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   ];
 
   final List<String> _weekDays = const [
-    'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM',
+    'LUN',
+    'MAR',
+    'MIÉ',
+    'JUE',
+    'VIE',
+    'SÁB',
+    'DOM',
   ];
 
   @override
@@ -56,41 +87,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final now = DateTime.now();
     _visibleMonth = DateTime(now.year, now.month, 1);
-
-    _tasks = [
-      CalendarTask(
-        date: DateTime(now.year, now.month, now.day),
-        title: 'Entregar actividad',
-        subject: 'Programación',
-      ),
-      CalendarTask(
-        date: DateTime(now.year, now.month, now.day + 1),
-        title: 'Estudiar para examen',
-        subject: 'Matemáticas',
-      ),
-      CalendarTask(
-        date: DateTime(now.year, now.month, now.day + 3),
-        title: 'Presentar proyecto',
-        subject: 'Inglés',
-      ),
-      CalendarTask(
-        date: DateTime(now.year, now.month, now.day + 6),
-        title: 'Resolver ejercicios',
-        subject: 'Física',
-      ),
-    ];
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      _tasksStream = null;
+    } else {
+      _tasksCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('calendarTasks');
+      _tasksStream = _tasksCollection!.snapshots();
+    }
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   List<CalendarTask> _tasksForDay(DateTime day) {
-    return _tasks
-        .where((task) => _isSameDay(task.date, day))
-        .toList();
+    return _tasks.where((task) => _isSameDay(task.date, day)).toList();
   }
 
   List<CalendarTask> get _upcomingTasks {
@@ -98,9 +112,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final tasks = _tasks
         .where(
-          (task) => task.date.isAfter(
-            DateTime(now.year, now.month, now.day - 1),
-          ),
+          (task) =>
+              task.date.isAfter(DateTime(now.year, now.month, now.day - 1)),
         )
         .toList();
 
@@ -110,21 +123,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   void _previousMonth() {
     setState(() {
-      _visibleMonth = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month - 1,
-        1,
-      );
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1, 1);
     });
   }
 
   void _nextMonth() {
     setState(() {
-      _visibleMonth = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month + 1,
-        1,
-      );
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 1);
     });
   }
 
@@ -139,10 +144,129 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _openTasks() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const MateriasTareasScreen(),
+      MaterialPageRoute(builder: (context) => const MateriasTareasScreen()),
+    );
+  }
+
+  Future<void> _addTask() async {
+    final collection = _tasksCollection;
+    if (collection == null) return;
+
+    final titleController = TextEditingController();
+    final subjectController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var date = DateTime.now();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, updateDialog) => AlertDialog(
+          title: const Text('Agregar tarea al calendario'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: titleController,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Tarea'),
+                  textCapitalization: TextCapitalization.sentences,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Escribe el nombre de la tarea.'
+                      : null,
+                ),
+                TextFormField(
+                  controller: subjectController,
+                  decoration: const InputDecoration(labelText: 'Materia'),
+                  textCapitalization: TextCapitalization.sentences,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Escribe la materia.'
+                      : null,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Fecha'),
+                  subtitle: Text('${date.day}/${date.month}/${date.year}'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final selectedDate = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: date,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (selectedDate != null) {
+                      updateDialog(() => date = selectedDate);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
       ),
     );
+
+    if (result != true || !mounted) {
+      titleController.dispose();
+      subjectController.dispose();
+      return;
+    }
+
+    try {
+      await collection.add({
+        'title': titleController.text.trim(),
+        'subject': subjectController.text.trim(),
+        'date': Timestamp.fromDate(DateTime(date.year, date.month, date.day)),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No se pudo guardar la tarea: ${error.message ?? error.code}',
+            ),
+          ),
+        );
+      }
+    } finally {
+      titleController.dispose();
+      subjectController.dispose();
+    }
+  }
+
+  Future<void> _deleteTask(CalendarTask task) async {
+    final collection = _tasksCollection;
+    if (collection == null) return;
+
+    try {
+      await collection.doc(task.id).delete();
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No se pudo eliminar la tarea: ${error.message ?? error.code}',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   String _formatTaskDate(DateTime date) {
@@ -152,6 +276,55 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_tasksStream == null) {
+      return const Scaffold(
+        body: Center(child: Text('Inicia sesión para ver tu calendario.')),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _tasksStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            backgroundColor: bgColor,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'No se pudieron cargar las tareas del calendario. '
+                  '${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        try {
+          _tasks = snapshot.data!.docs.map(CalendarTask.fromDocument).toList()
+            ..sort((a, b) => a.date.compareTo(b.date));
+        } on FormatException catch (error) {
+          return Scaffold(
+            backgroundColor: bgColor,
+            body: Center(
+              child: Text('Datos inválidos en el calendario: $error'),
+            ),
+          );
+        }
+
+        return _buildCalendarView();
+      },
+    );
+  }
+
+  Widget _buildCalendarView() {
     final firstDayOfMonth = DateTime(
       _visibleMonth.year,
       _visibleMonth.month,
@@ -175,11 +348,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(
-              Icons.menu,
-              color: primaryTeal,
-              size: 28,
-            ),
+            icon: const Icon(Icons.menu, color: primaryTeal, size: 28),
             tooltip: 'Abrir menú',
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
@@ -235,22 +404,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   const Spacer(),
                   TextButton(
                     onPressed: _goToToday,
-                    style: TextButton.styleFrom(
-                      foregroundColor: primaryTeal,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: primaryTeal),
                     child: const Text(
                       'Hoy',
                       style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _addTask,
+                    tooltip: 'Agregar tarea',
+                    icon: const Icon(
+                      Icons.add_circle_outline,
+                      color: primaryTeal,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(14),
@@ -266,10 +438,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   children: [
                     IconButton(
                       onPressed: _previousMonth,
-                      icon: const Icon(
-                        Icons.chevron_left,
-                        color: primaryTeal,
-                      ),
+                      icon: const Icon(Icons.chevron_left, color: primaryTeal),
                     ),
                     Expanded(
                       child: Center(
@@ -286,10 +455,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ),
                     IconButton(
                       onPressed: _nextMonth,
-                      icon: const Icon(
-                        Icons.chevron_right,
-                        color: primaryTeal,
-                      ),
+                      icon: const Icon(Icons.chevron_right, color: primaryTeal),
                     ),
                   ],
                 ),
@@ -329,8 +495,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: totalCells,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 7,
                     crossAxisSpacing: 4,
                     mainAxisSpacing: 5,
@@ -383,9 +548,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 child: Text(
                                   '$dayNumber',
                                   style: TextStyle(
-                                    color: isToday
-                                        ? primaryTeal
-                                        : textDark,
+                                    color: isToday ? primaryTeal : textDark,
                                     fontWeight: isToday
                                         ? FontWeight.bold
                                         : FontWeight.w500,
@@ -459,9 +622,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   const Spacer(),
                   TextButton(
                     onPressed: _openTasks,
-                    style: TextButton.styleFrom(
-                      foregroundColor: primaryTeal,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: primaryTeal),
                     child: const Text(
                       'Ver todo',
                       style: TextStyle(fontWeight: FontWeight.w600),
@@ -483,10 +644,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: const Center(
                     child: Text(
                       'No tienes tareas pendientes',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                   ),
                 )
@@ -507,9 +665,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           decoration: BoxDecoration(
                             color: cardColor,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.grey.shade200,
-                            ),
+                            border: Border.all(color: Colors.grey.shade200),
                           ),
                           child: Row(
                             children: [
@@ -524,8 +680,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       task.title,
@@ -549,10 +704,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   ],
                                 ),
                               ),
-                              const Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey,
-                                size: 21,
+                              PopupMenuButton<String>(
+                                tooltip: 'Opciones de tarea',
+                                onSelected: (option) {
+                                  if (option == 'eliminar') {
+                                    _deleteTask(task);
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'eliminar',
+                                    child: Text('Eliminar tarea'),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
