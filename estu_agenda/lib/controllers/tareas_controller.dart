@@ -23,12 +23,14 @@ class Tarea {
   String titulo;
   String materia;
   EstadoTarea estado;
+  DateTime? fechaLimite; // <-- Campo agregado para la fecha y hora estilo Classroom
 
   Tarea({
     required this.id,
     required this.titulo,
     required this.materia,
     this.estado = EstadoTarea.pendiente,
+    this.fechaLimite,
   });
 }
 
@@ -159,7 +161,8 @@ class TareasController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void agregarTarea(String titulo) {
+  // Actualizado para aceptar opcionalmente la fecha límite
+  void agregarTarea(String titulo, [DateTime? fechaLimite]) {
     if (titulo.trim().isEmpty || _materiaSeleccionada == null) return;
     _todasLasTareas.add(
       Tarea(
@@ -167,18 +170,21 @@ class TareasController extends ChangeNotifier {
         titulo: titulo.trim(),
         materia: _materiaSeleccionada!,
         estado: EstadoTarea.pendiente,
+        fechaLimite: fechaLimite,
       ),
     );
     notifyListeners();
   }
 
-  void editarTarea(String id, String nuevoTitulo) {
+  // Actualizado para aceptar opcionalmente la nueva fecha límite en la edición
+  void editarTarea(String id, String nuevoTitulo, [DateTime? nuevaFechaLimite]) {
     final tituloLimpio = nuevoTitulo.trim();
     if (tituloLimpio.isEmpty) return;
 
     final index = _todasLasTareas.indexWhere((t) => t.id == id);
     if (index != -1) {
       _todasLasTareas[index].titulo = tituloLimpio;
+      _todasLasTareas[index].fechaLimite = nuevaFechaLimite;
       notifyListeners();
     }
   }
