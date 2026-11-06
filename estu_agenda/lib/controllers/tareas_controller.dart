@@ -26,10 +26,17 @@ enum EstadoTarea { pendiente, enProceso, terminada }
 
 class Tarea {
   final String id;
+
+  String titulo;
+  String materia;
+  EstadoTarea estado;
+  DateTime? fechaLimite; 
+
   final String materiaId;
   final String materia;
   final String titulo;
   final EstadoTarea estado;
+
 
   Tarea({
     required this.id,
@@ -37,6 +44,7 @@ class Tarea {
     required this.materia,
     required this.titulo,
     this.estado = EstadoTarea.pendiente,
+    this.fechaLimite,
   });
 }
 
@@ -446,6 +454,31 @@ class TareasController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Actualizado para aceptar opcionalmente la fecha límite
+  void agregarTarea(String titulo, [DateTime? fechaLimite]) {
+    if (titulo.trim().isEmpty || _materiaSeleccionada == null) return;
+    _todasLasTareas.add(
+      Tarea(
+        id: DateTime.now().toString(),
+        titulo: titulo.trim(),
+        materia: _materiaSeleccionada!,
+        estado: EstadoTarea.pendiente,
+        fechaLimite: fechaLimite,
+      ),
+    );
+    notifyListeners();
+  }
+
+  void editarTarea(String id, String nuevoTitulo, [DateTime? nuevaFechaLimite]) {
+    final tituloLimpio = nuevoTitulo.trim();
+    if (tituloLimpio.isEmpty) return;
+
+    final index = _todasLasTareas.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      _todasLasTareas[index].titulo = tituloLimpio;
+      _todasLasTareas[index].fechaLimite = nuevaFechaLimite;
+      notifyListeners();
+
   Future<void> agregarTarea(String titulo) async {
     final tituloLimpio = titulo.trim();
     final subjectId = _selectedSubjectId;
@@ -469,6 +502,7 @@ class TareasController extends ChangeNotifier {
     final tasks = _tasksCollection;
     if (tituloLimpio.isEmpty || tasks == null) {
       throw StateError('Escribe un nombre válido para la tarea.');
+
     }
     await tasks.doc(id).update({
       'title': tituloLimpio,

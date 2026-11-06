@@ -433,6 +433,35 @@ class HorarioScreen extends StatelessWidget {
                                               ),
                                             ),
                                             child: SingleChildScrollView(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 4, vertical: 2),
+                                              child: Center(
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      clase.materia,
+                                                      textAlign: TextAlign.center,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF124B51),
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '${_hora(clase.inicio.hour * 60 + clase.inicio.minute)}–${_hora(clase.fin.hour * 60 + clase.fin.minute)}',
+                                                      textAlign: TextAlign.center,
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF124B51),
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+
                                               padding: const EdgeInsets.all(6),
                                               child: Text(
                                                 '${clase.materia}\n'
@@ -442,6 +471,7 @@ class HorarioScreen extends StatelessWidget {
                                                   color: Color(0xFF124B51),
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
+
                                                 ),
                                               ),
                                             ),
