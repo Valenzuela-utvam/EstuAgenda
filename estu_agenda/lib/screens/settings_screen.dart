@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/auth_navigation.dart';
@@ -18,6 +22,129 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _sonido = true;
   bool _notificaciones = true;
   bool _modoOscuro = false;
+  int _reminderLeadMinutes = 1440;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _preferencesSubscription;
+
+  static const Map<int, String> _reminderOptions = {
+    10: '10 minutos antes',
+    15: '15 minutos antes',
+    30: '30 minutos antes',
+    60: '1 hora antes',
+    120: '2 horas antes',
+    180: '3 horas antes',
+    240: '4 horas antes',
+    1440: '1 día antes',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      _preferencesSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('preferences')
+          .snapshots()
+          .listen(
+            (snapshot) {
+              final savedValue = snapshot.data()?['reminderLeadMinutes'];
+              if (!mounted ||
+                  savedValue is! int ||
+                  !_reminderOptions.containsKey(savedValue)) {
+                return;
+              }
+              setState(() => _reminderLeadMinutes = savedValue);
+            },
+            onError: (Object error) {
+              debugPrint('No se pudieron actualizar los avisos: $error');
+            },
+          );
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_preferencesSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _configureReminderLeadTime() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showSettingsError('Inicia sesión para guardar tus preferencias.');
+      return;
+    }
+
+    var selectedValue = _reminderLeadMinutes;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Aviso de tareas'),
+          content: DropdownButton<int>(
+            value: selectedValue,
+            isExpanded: true,
+            items: _reminderOptions.entries
+                .map(
+                  (option) => DropdownMenuItem(
+                    value: option.key,
+                    child: Text(option.value),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setDialogState(() => selectedValue = value);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final selectedLeadTime = selectedValue;
+                setState(() => _reminderLeadMinutes = selectedLeadTime);
+                Navigator.pop(dialogContext);
+                unawaited(_saveReminderLeadTime(user.uid, selectedLeadTime));
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveReminderLeadTime(String userId, int minutes) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('preferences')
+          .set({
+            'reminderLeadMinutes': minutes,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+    } on FirebaseException catch (error) {
+      _showSettingsError(
+        'No se pudo sincronizar el aviso con Firebase: '
+        '${error.message ?? error.code}',
+      );
+    }
+  }
+
+  void _showSettingsError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   void _mostrarOpcion({required String titulo, required Widget contenido}) {
     showDialog<void>(
@@ -38,6 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSettingsOption({
     required IconData icon,
     required String title,
+    String? subtitle,
     required Color iconColor,
     required Color iconBgColor,
     required VoidCallback onTap,
@@ -65,6 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             fontSize: 16,
           ),
         ),
+        subtitle: subtitle == null ? null : Text(subtitle),
         trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
         onTap: onTap,
       ),
@@ -165,6 +294,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+            _buildSettingsOption(
+              icon: Icons.alarm_on_outlined,
+              title: 'Avisos de tareas',
+              subtitle: _reminderOptions[_reminderLeadMinutes],
+              iconColor: primaryTeal,
+              iconBgColor: primaryTeal.withOpacity(0.15),
+              onTap: _configureReminderLeadTime,
             ),
             _buildSettingsOption(
               icon: Icons.palette_outlined,

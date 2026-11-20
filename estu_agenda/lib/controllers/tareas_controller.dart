@@ -35,6 +35,7 @@ class Tarea {
   final String materiaId;
   final String materia;
   final String titulo;
+  final DateTime? fechaEntrega;
   final EstadoTarea estado;
 
 
@@ -43,6 +44,7 @@ class Tarea {
     required this.materiaId,
     required this.materia,
     required this.titulo,
+    required this.fechaEntrega,
     this.estado = EstadoTarea.pendiente,
     this.fechaLimite,
   });
@@ -227,9 +229,11 @@ class TareasController extends ChangeNotifier {
             final subjectId = data['subjectId'];
             final title = data['title'];
             final stateName = data['status'];
+            final dueAt = data['dueAt'];
             if (subjectId is! String ||
                 title is! String ||
                 stateName is! String ||
+                (dueAt != null && dueAt is! Timestamp) ||
                 !_materiasPorId.containsKey(subjectId)) {
               throw const FormatException('Una tarea tiene datos inválidos.');
             }
@@ -248,6 +252,7 @@ class TareasController extends ChangeNotifier {
               materiaId: subjectId,
               materia: _materiasPorId[subjectId]!,
               titulo: title,
+              fechaEntrega: (dueAt as Timestamp?)?.toDate(),
               estado: state.first,
             );
           }),
@@ -454,32 +459,7 @@ class TareasController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Actualizado para aceptar opcionalmente la fecha límite
-  void agregarTarea(String titulo, [DateTime? fechaLimite]) {
-    if (titulo.trim().isEmpty || _materiaSeleccionada == null) return;
-    _todasLasTareas.add(
-      Tarea(
-        id: DateTime.now().toString(),
-        titulo: titulo.trim(),
-        materia: _materiaSeleccionada!,
-        estado: EstadoTarea.pendiente,
-        fechaLimite: fechaLimite,
-      ),
-    );
-    notifyListeners();
-  }
-
-  void editarTarea(String id, String nuevoTitulo, [DateTime? nuevaFechaLimite]) {
-    final tituloLimpio = nuevoTitulo.trim();
-    if (tituloLimpio.isEmpty) return;
-
-    final index = _todasLasTareas.indexWhere((t) => t.id == id);
-    if (index != -1) {
-      _todasLasTareas[index].titulo = tituloLimpio;
-      _todasLasTareas[index].fechaLimite = nuevaFechaLimite;
-      notifyListeners();
-
-  Future<void> agregarTarea(String titulo) async {
+  Future<void> agregarTarea(String titulo, DateTime fechaEntrega) async {
     final tituloLimpio = titulo.trim();
     final subjectId = _selectedSubjectId;
     final tasks = _tasksCollection;
@@ -491,13 +471,18 @@ class TareasController extends ChangeNotifier {
     await tasks.add({
       'subjectId': subjectId,
       'title': tituloLimpio,
+      'dueAt': Timestamp.fromDate(fechaEntrega),
       'status': EstadoTarea.pendiente.name,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> editarTarea(String id, String nuevoTitulo) async {
+  Future<void> editarTarea(
+    String id,
+    String nuevoTitulo,
+    DateTime fechaEntrega,
+  ) async {
     final tituloLimpio = nuevoTitulo.trim();
     final tasks = _tasksCollection;
     if (tituloLimpio.isEmpty || tasks == null) {
@@ -506,6 +491,7 @@ class TareasController extends ChangeNotifier {
     }
     await tasks.doc(id).update({
       'title': tituloLimpio,
+      'dueAt': Timestamp.fromDate(fechaEntrega),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

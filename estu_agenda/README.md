@@ -21,9 +21,10 @@ samples, guidance on mobile development, and a full API reference.
 The app stores each account's data in Cloud Firestore under `users/{uid}`:
 
 - `subjects/{subjectId}` stores each subject.
-- `tasks/{taskId}` stores tasks and their status for a subject.
+- `tasks/{taskId}` stores tasks, due dates/times, and status for a subject.
 - `classes/{classId}` stores the weekly schedule associated with a subject.
 - `calendarTasks/{taskId}` stores dated calendar entries.
+- `settings/preferences` stores each user's task-reminder lead time.
 
 Create a Cloud Firestore database in the Firebase project and publish the
 updated rules from `firestore.rules` in **Firestore Database → Rules**. The app
@@ -46,3 +47,30 @@ Firebase Admin credentials or other private keys in the Flutter app. When
 setting up a local copy, obtain the platform configuration from the Firebase
 project owner and run `flutterfire configure` to generate the local Firebase
 configuration.
+
+## Wear OS companion app
+
+The calendar combines dated tasks from **Materias y Tareas** with entries
+created directly in **Calendario**. The Wear OS app lives in
+`android/wearable`; the Flutter phone app sends the signed-in user's upcoming
+tasks and calendar entries to a paired Android watch through the Wear OS Data
+Layer. Tasks in **Materias y Tareas** require a due date and time. The reminder
+lead time is configured in **Configuraciones → Avisos de tareas** and is saved
+per account. Options are 10, 15, 30 minutes, 1, 2, 3, or 4 hours, or 1 day
+before; the default is 1 day. Firebase credentials are not copied to the watch.
+Android may use an inexact alarm if the user has not allowed exact alarms, and
+notifications require the watch's notification permission.
+
+Tasks created before due dates were added can still be viewed, but edit each one
+and set its due date and time before it can appear on the watch.
+
+After changing Firestore rules or adding task fields, publish the current
+`firestore.rules` from **Firestore Database → Rules** in Firebase Console.
+
+Build the phone app with `flutter run` from this directory. Build the watch APK
+with `cd android && ./gradlew :wearable:assembleDebug`, then install it on a
+Wear OS emulator or paired watch. For development, pair the phone and watch
+emulators in Android Studio's Device Manager. Both apps must use the same
+package name (`com.example.estu_agenda`) and application signing certificate
+for Data Layer communication. Debug builds use the local Android debug
+certificate; release builds must be signed with the same release certificate.
