@@ -462,6 +462,22 @@ class _MateriasTareasScreenState extends State<MateriasTareasScreen> {
     );
   }
 
+  String _formatearFechaLlamativa(DateTime fecha) {
+    final ahora = DateTime.now();
+    final diferencia = fecha.difference(ahora);
+    final horaMinuto = '${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}';
+
+    if (diferencia.isNegative) {
+      return 'Fecha límite vencida';
+    } else if (diferencia.inDays == 0 && fecha.day == ahora.day) {
+      return 'Hoy a las $horaMinuto';
+    } else if (diferencia.inDays == 1 || (diferencia.inDays == 0 && fecha.day != ahora.day)) {
+      return 'Mañana a las $horaMinuto';
+    } else {
+      return '${fecha.day}/${fecha.month}/${fecha.year} a las $horaMinuto';
+    }
+  }
+
   Widget _buildLeyendaEstados() {
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -565,6 +581,100 @@ class _MateriasTareasScreenState extends State<MateriasTareasScreen> {
 
   void _mostrarDialogoTarea(BuildContext context, {Tarea? tareaAEditar}) {
     final esEdicion = tareaAEditar != null;
+    _inputController.text = esEdicion ? tareaAEditar.titulo : '';
+    // Variable temporal para capturar la fecha y hora seleccionadas en el diálogo
+    DateTime? fechaTemp = tareaAEditar?.fechaLimite;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: Text(
+            esEdicion ? 'Editar Tarea' : 'Nueva Tarea',
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _inputController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Nombre de la tarea',
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.calendar_today, size: 18, color: primaryTeal),
+                label: Text(
+                  fechaTemp == null
+                      ? 'Agregar fecha y hora límite'
+                      : 'Entrega: ${_formatearFechaLlamativa(fechaTemp!)}',
+                  style: const TextStyle(color: textDark, fontSize: 13),
+                ),
+                onPressed: () async {
+                  final fechaSeleccionada = await showDatePicker(
+                    context: context,
+                    initialDate: fechaTemp ?? DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2100),
+                  );
+
+                  if (fechaSeleccionada != null) {
+                    final horaSeleccionada = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(fechaTemp ?? DateTime.now()),
+                    );
+
+                    if (horaSeleccionada != null) {
+                      setStateDialog(() {
+                        fechaTemp = DateTime(
+                          fechaSeleccionada.year,
+                          fechaSeleccionada.month,
+                          fechaSeleccionada.day,
+                          horaSeleccionada.hour,
+                          horaSeleccionada.minute,
+                        );
+                      });
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryTeal,
+              ),
+              onPressed: () {
+                if (esEdicion) {
+                  _controller.editarTarea(
+                    tareaAEditar.id,
+                    _inputController.text,
+                    fechaTemp,
+                  );
+                } else {
+                  _controller.agregarTarea(
+                    _inputController.text,
+                    fechaTemp,
+                  );
+                }
+
+                _inputController.clear();
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Guardar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
 
     _inputController.text = esEdicion ? tareaAEditar.titulo : '';
     final fechaEntrega = tareaAEditar?.fechaEntrega;

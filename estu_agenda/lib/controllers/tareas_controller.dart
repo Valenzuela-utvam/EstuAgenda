@@ -26,11 +26,18 @@ enum EstadoTarea { pendiente, enProceso, terminada }
 
 class Tarea {
   final String id;
+
+  String titulo;
+  String materia;
+  EstadoTarea estado;
+  DateTime? fechaLimite; 
+
   final String materiaId;
   final String materia;
   final String titulo;
   final DateTime? fechaEntrega;
   final EstadoTarea estado;
+
 
   Tarea({
     required this.id,
@@ -39,6 +46,7 @@ class Tarea {
     required this.titulo,
     required this.fechaEntrega,
     this.estado = EstadoTarea.pendiente,
+    this.fechaLimite,
   });
 }
 
@@ -479,6 +487,7 @@ class TareasController extends ChangeNotifier {
     final tasks = _tasksCollection;
     if (tituloLimpio.isEmpty || tasks == null) {
       throw StateError('Escribe un nombre válido para la tarea.');
+
     }
     await tasks.doc(id).update({
       'title': tituloLimpio,
