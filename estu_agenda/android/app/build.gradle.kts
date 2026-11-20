@@ -50,3 +50,7 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
+}

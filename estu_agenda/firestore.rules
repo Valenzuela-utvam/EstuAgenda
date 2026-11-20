@@ -36,14 +36,17 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'subjectId',
           'title',
+          'dueAt',
           'status',
           'createdAt',
           'updatedAt'
         ])
+        && request.resource.data.keys().hasAll(['dueAt'])
         && request.resource.data.subjectId is string
         && exists(/databases/$(database)/documents/users/$(userId)/subjects/$(request.resource.data.subjectId))
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
+        && request.resource.data.dueAt is timestamp
         && request.resource.data.status in [
           'pendiente',
           'enProceso',
@@ -55,10 +58,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'subjectId',
           'title',
+          'dueAt',
           'status',
           'createdAt',
           'updatedAt'
         ])
+        && (!('dueAt' in request.resource.data)
+          || request.resource.data.dueAt is timestamp)
         && request.resource.data.subjectId == resource.data.subjectId
         && exists(/databases/$(database)/documents/users/$(userId)/subjects/$(request.resource.data.subjectId))
         && request.resource.data.createdAt == resource.data.createdAt
@@ -117,6 +123,32 @@ service cloud.firestore {
         && request.resource.data.endMinutes > request.resource.data.startMinutes
         && request.resource.data.endMinutes < 1440
         && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/settings/{settingId} {
+      allow read: if ownsUserData(userId);
+      allow create, update: if ownsUserData(userId)
+        && settingId == 'preferences'
+        && request.resource.data.keys().hasOnly([
+          'reminderLeadMinutes',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'reminderLeadMinutes',
+          'updatedAt'
+        ])
+        && request.resource.data.reminderLeadMinutes in [
+          10,
+          15,
+          30,
+          60,
+          120,
+          180,
+          240,
+          1440
+        ]
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
     }
 
     match /users/{userId}/calendarTasks/{taskId} {

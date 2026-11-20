@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -5,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/horario_screen.dart';
+import 'wearable/wearable_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +44,22 @@ class _AuthGate extends StatefulWidget {
 class _AuthGateState extends State<_AuthGate> {
   late final Stream<User?> _authState = FirebaseAuth.instance
       .authStateChanges();
+  final WearableSyncService _wearableSync = WearableSyncService();
+  String? _wearableUserId;
+  bool _hasSyncedAuthState = false;
+
+  void _syncWearableAccount(String? userId) {
+    if (_hasSyncedAuthState && userId == _wearableUserId) return;
+    _hasSyncedAuthState = true;
+    _wearableUserId = userId;
+    unawaited(_wearableSync.setUser(userId));
+  }
+
+  @override
+  void dispose() {
+    unawaited(_wearableSync.dispose());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,9 +80,9 @@ class _AuthGateState extends State<_AuthGate> {
           );
         }
 
-        return snapshot.data == null
-            ? const LoginScreen()
-            : const HorarioScreen();
+        final user = snapshot.data;
+        _syncWearableAccount(user?.uid);
+        return user == null ? const LoginScreen() : const HorarioScreen();
       },
     );
   }

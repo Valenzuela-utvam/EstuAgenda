@@ -373,6 +373,12 @@ class _MateriasTareasScreenState extends State<MateriasTareasScreen> {
                 color: textDark,
               ),
             ),
+            subtitle: tarea.fechaEntrega == null
+                ? const Text('Agrega fecha y hora de entrega')
+                : Text(
+                    'Entrega ${_formatDueDate(tarea.fechaEntrega!)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
             trailing: PopupMenuButton<String>(
               tooltip: 'Opciones de tarea',
               onSelected: (opcion) async {
@@ -433,7 +439,7 @@ class _MateriasTareasScreenState extends State<MateriasTareasScreen> {
                     children: [
                       Icon(Icons.edit, size: 18),
                       SizedBox(width: 8),
-                      Text('Editar nombre'),
+                      Text('Editar tarea'),
                     ],
                   ),
                 ),
@@ -561,44 +567,137 @@ class _MateriasTareasScreenState extends State<MateriasTareasScreen> {
     final esEdicion = tareaAEditar != null;
 
     _inputController.text = esEdicion ? tareaAEditar.titulo : '';
+    final fechaEntrega = tareaAEditar?.fechaEntrega;
+    DateTime? fechaSeleccionada = fechaEntrega == null
+        ? null
+        : DateTime(fechaEntrega.year, fechaEntrega.month, fechaEntrega.day);
+    TimeOfDay? horaSeleccionada = fechaEntrega == null
+        ? null
+        : TimeOfDay.fromDateTime(fechaEntrega);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(esEdicion ? 'Editar Tarea' : 'Nueva Tarea'),
-        content: TextField(
-          controller: _inputController,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Nombre de la tarea'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: primaryTeal),
-            onPressed: () async {
-              try {
-                if (esEdicion) {
-                  await _controller.editarTarea(
-                    tareaAEditar.id,
-                    _inputController.text,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(esEdicion ? 'Editar Tarea' : 'Nueva Tarea'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _inputController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre de la tarea',
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today, color: primaryTeal),
+                title: const Text('Fecha de entrega *'),
+                subtitle: Text(
+                  fechaSeleccionada == null
+                      ? 'Selecciona la fecha'
+                      : '${fechaSeleccionada!.day}/'
+                            '${fechaSeleccionada!.month}/'
+                            '${fechaSeleccionada!.year}',
+                ),
+                onTap: () async {
+                  final now = DateTime.now();
+                  final selectedDate = await showDatePicker(
+                    context: dialogContext,
+                    initialDate: fechaSeleccionada ?? now,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
                   );
-                } else {
-                  await _controller.agregarTarea(_inputController.text);
-                }
-                _inputController.clear();
-                if (context.mounted) Navigator.pop(context);
-              } catch (error) {
-                await _mostrarError(error);
-              }
-            },
-            child: const Text('Guardar', style: TextStyle(color: Colors.white)),
+                  if (selectedDate != null) {
+                    setDialogState(() => fechaSeleccionada = selectedDate);
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.schedule, color: primaryTeal),
+                title: const Text('Hora de entrega *'),
+                subtitle: Text(
+                  horaSeleccionada == null
+                      ? 'Selecciona la hora'
+                      : horaSeleccionada!.format(context),
+                ),
+                onTap: () async {
+                  final selectedTime = await showTimePicker(
+                    context: dialogContext,
+                    initialTime: horaSeleccionada ?? TimeOfDay.now(),
+                  );
+                  if (selectedTime != null) {
+                    setDialogState(() => horaSeleccionada = selectedTime);
+                  }
+                },
+              ),
+            ],
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: primaryTeal),
+              onPressed: () async {
+                final dueDate = fechaSeleccionada;
+                final dueTime = horaSeleccionada;
+                if (_inputController.text.trim().isEmpty ||
+                    dueDate == null ||
+                    dueTime == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Escribe el nombre y selecciona fecha y hora de entrega.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                final dueAt = DateTime(
+                  dueDate.year,
+                  dueDate.month,
+                  dueDate.day,
+                  dueTime.hour,
+                  dueTime.minute,
+                );
+                try {
+                  if (esEdicion) {
+                    await _controller.editarTarea(
+                      tareaAEditar.id,
+                      _inputController.text,
+                      dueAt,
+                    );
+                  } else {
+                    await _controller.agregarTarea(
+                      _inputController.text,
+                      dueAt,
+                    );
+                  }
+                  _inputController.clear();
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } catch (error) {
+                  await _mostrarError(error);
+                }
+              },
+              child: const Text(
+                'Guardar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  String _formatDueDate(DateTime date) {
+    final time = TimeOfDay.fromDateTime(date).format(context);
+    return '${date.day}/${date.month}/${date.year} · $time';
   }
 }
 

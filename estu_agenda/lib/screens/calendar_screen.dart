@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,15 +12,17 @@ class CalendarTask {
   final DateTime date;
   final String title;
   final String subject;
+  final bool isCalendarEntry;
 
   CalendarTask({
     required this.id,
     required this.date,
     required this.title,
     required this.subject,
+    required this.isCalendarEntry,
   });
 
-  factory CalendarTask.fromDocument(
+  factory CalendarTask.fromCalendarDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data();
@@ -34,6 +38,33 @@ class CalendarTask {
       date: date.toDate(),
       title: data['title'] as String,
       subject: data['subject'] as String,
+      isCalendarEntry: true,
+    );
+  }
+
+  factory CalendarTask.fromSubjectTask(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+    Map<String, String> subjectNames,
+  ) {
+    final data = document.data();
+    final dueAt = data['dueAt'];
+    final title = data['title'];
+    final subjectId = data['subjectId'];
+    final status = data['status'];
+    if (dueAt is! Timestamp ||
+        title is! String ||
+        subjectId is! String ||
+        status is! String ||
+        !subjectNames.containsKey(subjectId)) {
+      throw const FormatException('Una tarea tiene datos incompletos.');
+    }
+
+    return CalendarTask(
+      id: document.id,
+      date: dueAt.toDate(),
+      title: title,
+      subject: subjectNames[subjectId]!,
+      isCalendarEntry: false,
     );
   }
 }
@@ -52,9 +83,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   static const Color textDark = Color(0xFF124B51);
 
   late DateTime _visibleMonth;
-  late final Stream<QuerySnapshot<Map<String, dynamic>>>? _tasksStream;
   List<CalendarTask> _tasks = [];
-  CollectionReference<Map<String, dynamic>>? _tasksCollection;
+  CollectionReference<Map<String, dynamic>>? _calendarTasksCollection;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _calendarTasksSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _tasksSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _subjectsSubscription;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _calendarTaskDocuments = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _subjectTaskDocuments = [];
+  Map<String, String> _subjectNames = {};
+  bool _hasCalendarTasks = false;
+  bool _hasSubjectTasks = false;
+  bool _hasSubjects = false;
+  bool _isLoading = true;
+  String? _loadError;
 
   final List<String> _months = const [
     'Enero',
@@ -88,15 +131,87 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final now = DateTime.now();
     _visibleMonth = DateTime(now.year, now.month, 1);
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      _tasksStream = null;
-    } else {
-      _tasksCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('calendarTasks');
-      _tasksStream = _tasksCollection!.snapshots();
+    if (userId == null) return;
+
+    final user = FirebaseFirestore.instance.collection('users').doc(userId);
+    _calendarTasksCollection = user.collection('calendarTasks');
+    _calendarTasksSubscription = _calendarTasksCollection!.snapshots().listen((
+      snapshot,
+    ) {
+      _calendarTaskDocuments = snapshot.docs;
+      _hasCalendarTasks = true;
+      _refreshCalendarTasks();
+    }, onError: _handleLoadError);
+    _tasksSubscription = user.collection('tasks').snapshots().listen((
+      snapshot,
+    ) {
+      _subjectTaskDocuments = snapshot.docs;
+      _hasSubjectTasks = true;
+      _refreshCalendarTasks();
+    }, onError: _handleLoadError);
+    _subjectsSubscription = user.collection('subjects').snapshots().listen((
+      snapshot,
+    ) {
+      try {
+        final subjects = <String, String>{};
+        for (final document in snapshot.docs) {
+          final name = document.data()['name'];
+          if (name is! String || name.trim().isEmpty) {
+            throw const FormatException(
+              'Una materia tiene un nombre inválido.',
+            );
+          }
+          subjects[document.id] = name.trim();
+        }
+        _subjectNames = subjects;
+        _hasSubjects = true;
+        _refreshCalendarTasks();
+      } on FormatException catch (error) {
+        _handleLoadError(error);
+      }
+    }, onError: _handleLoadError);
+  }
+
+  void _handleLoadError(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _loadError = 'No se pudieron cargar las tareas: $error';
+      _isLoading = false;
+    });
+  }
+
+  void _refreshCalendarTasks() {
+    if (!_hasCalendarTasks || !_hasSubjectTasks || !_hasSubjects) return;
+
+    try {
+      final calendarTasks = _calendarTaskDocuments.map(
+        CalendarTask.fromCalendarDocument,
+      );
+      final subjectTasks = _subjectTaskDocuments
+          .where((document) => document.data()['status'] != 'terminada')
+          .where((document) => document.data()['dueAt'] != null)
+          .map(
+            (document) => CalendarTask.fromSubjectTask(document, _subjectNames),
+          );
+      final tasks = [...calendarTasks, ...subjectTasks]
+        ..sort((a, b) => a.date.compareTo(b.date));
+      if (!mounted) return;
+      setState(() {
+        _tasks = tasks;
+        _isLoading = false;
+        _loadError = null;
+      });
+    } on FormatException catch (error) {
+      _handleLoadError(error);
     }
+  }
+
+  @override
+  void dispose() {
+    _calendarTasksSubscription?.cancel();
+    _tasksSubscription?.cancel();
+    _subjectsSubscription?.cancel();
+    super.dispose();
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
@@ -110,12 +225,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<CalendarTask> get _upcomingTasks {
     final now = DateTime.now();
 
-    final tasks = _tasks
-        .where(
-          (task) =>
-              task.date.isAfter(DateTime(now.year, now.month, now.day - 1)),
-        )
-        .toList();
+    final tasks = _tasks.where((task) {
+      if (task.isCalendarEntry) {
+        return !DateTime(
+          task.date.year,
+          task.date.month,
+          task.date.day,
+        ).isBefore(DateTime(now.year, now.month, now.day));
+      }
+      return task.date.isAfter(now);
+    }).toList();
 
     tasks.sort((a, b) => a.date.compareTo(b.date));
     return tasks.take(3).toList();
@@ -149,7 +268,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _addTask() async {
-    final collection = _tasksCollection;
+    final collection = _calendarTasksCollection;
     if (collection == null) return;
 
     final titleController = TextEditingController();
@@ -251,7 +370,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _deleteTask(CalendarTask task) async {
-    final collection = _tasksCollection;
+    if (!task.isCalendarEntry) return;
+    final collection = _calendarTasksCollection;
     if (collection == null) return;
 
     try {
@@ -269,59 +389,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  String _formatTaskDate(DateTime date) {
-    return '${date.day} '
+  String _formatTaskDate(CalendarTask task) {
+    final date = task.date;
+    final day =
+        '${date.day} '
         '${_months[date.month - 1].substring(0, 3).toLowerCase()}';
+    if (task.isCalendarEntry) return day;
+    final hour = TimeOfDay.fromDateTime(date).format(context);
+    return '$day · $hour';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_tasksStream == null) {
+    if (FirebaseAuth.instance.currentUser == null) {
       return const Scaffold(
         body: Center(child: Text('Inicia sesión para ver tu calendario.')),
       );
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _tasksStream,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Scaffold(
-            backgroundColor: bgColor,
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No se pudieron cargar las tareas del calendario. '
-                  '${snapshot.error}',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          );
-        }
-
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        try {
-          _tasks = snapshot.data!.docs.map(CalendarTask.fromDocument).toList()
-            ..sort((a, b) => a.date.compareTo(b.date));
-        } on FormatException catch (error) {
-          return Scaffold(
-            backgroundColor: bgColor,
-            body: Center(
-              child: Text('Datos inválidos en el calendario: $error'),
-            ),
-          );
-        }
-
-        return _buildCalendarView();
-      },
-    );
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: bgColor,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(_loadError!, textAlign: TextAlign.center),
+          ),
+        ),
+      );
+    }
+    return _buildCalendarView();
   }
 
   Widget _buildCalendarView() {
@@ -695,7 +795,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     const SizedBox(height: 3),
                                     Text(
                                       '${task.subject} · '
-                                      '${_formatTaskDate(task.date)}',
+                                      '${_formatTaskDate(task)}',
                                       style: TextStyle(
                                         color: Colors.grey.shade600,
                                         fontSize: 12,
@@ -707,15 +807,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               PopupMenuButton<String>(
                                 tooltip: 'Opciones de tarea',
                                 onSelected: (option) {
-                                  if (option == 'eliminar') {
+                                  if (option == 'eliminar' &&
+                                      task.isCalendarEntry) {
                                     _deleteTask(task);
                                   }
                                 },
-                                itemBuilder: (context) => const [
-                                  PopupMenuItem(
-                                    value: 'eliminar',
-                                    child: Text('Eliminar tarea'),
-                                  ),
+                                itemBuilder: (context) => [
+                                  if (task.isCalendarEntry)
+                                    const PopupMenuItem(
+                                      value: 'eliminar',
+                                      child: Text('Eliminar tarea'),
+                                    )
+                                  else
+                                    const PopupMenuItem(
+                                      enabled: false,
+                                      value: 'materias',
+                                      child: Text(
+                                        'Edita esta tarea en Materias y Tareas',
+                                      ),
+                                    ),
                                 ],
                               ),
                             ],
